@@ -14,6 +14,7 @@ defmodule MixDarkly.Client do
     case variation(client, key, user, default) do
       {:ok, value} when is_boolean(value) -> {:ok, value}
       {:ok, value} -> {:error, "Incompatible type. Expected boolean value, got #{value}"}
+      {:error, reason} -> {:ok, default}
     end
   end
 
