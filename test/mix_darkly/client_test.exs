@@ -15,11 +15,25 @@ defmodule MixDarkly.ClientTest do
   end
 
   test "Returns default bool variation for non-existing key" do
-    client = nil
-    user = nil
-    
-    {:ok, value} = Sut.bool_variation(client, "idontexist", user, true)
-
+    {:ok, value} = Sut.bool_variation(nil, "idontexist", nil, true)
     assert value == true
+  end
+
+  test "Using bool_variation to return non-boolean value returns error" do
+    {result, reason} = Sut.bool_variation(nil, "idontexist", nil, "i am not a bool")
+    assert result == :error
+    assert String.starts_with?(reason, "Incompatible type")
+  end
+
+  test "Returns default variation when client is offline" do
+    client = %{
+      :config => %{
+        :offline => true
+      }
+    }
+
+    {:ok, value} = Sut.variation(client, "key", %{}, "foo")
+
+    assert value == "foo"
   end
 end
