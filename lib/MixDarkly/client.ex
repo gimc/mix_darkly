@@ -61,7 +61,19 @@ defmodule MixDarkly.Client do
   @spec eval_flag(client :: client(), flag :: FeatureFlag.feature_flag(), user :: term) ::
     {:ok, {value :: term, pre_requisite_events :: []}} |
     {:error, {reason :: String.t(), pre_requisite_events :: []}}
-  defp eval_flag(_client, _flag, _user) do
+  def eval_flag(client, flag, user) do
+    # cond do
+    #   flag.on ->
+    #     {result, evaluation} = Evaluation.for_user(user, flag, client.store)
+    #     cond do
+    #       result == :error -> {:error, {"", evaluation.pre_requisite_events}}
+    #       evaluation.value != nil -> {:ok, {evaluation.value, evaluation.pre_requisite_events}}
+    #     end
+    #   flag.off_variation != nil and flag.off_variation < length(flag.variations) ->
+    #     {:ok, Enum.at(flag.variations, flag.off_variation), evaluation.pre_requisite_events}}
+    #   true ->
+    #     {:error, {"", evaluation.pre_requisite_events}}
+    # end
     {:ok, {true, []}}
   end
 end
