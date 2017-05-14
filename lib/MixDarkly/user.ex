@@ -29,7 +29,7 @@ defmodule MixDarkly.User do
   end
 
   @spec get_custom_value(user :: User.t(), attribute :: atom) :: {value :: term, pass :: boolean}
-  defp get_custom_value(%{:custom => nil}, _attribute), do: {nil, true}
+  defp get_custom_value(%{custom: nil}, _attribute), do: {nil, true}
   defp get_custom_value(user, attribute) do
     case Keyword.get(user.custom, attribute) do
       nil -> {nil, true}

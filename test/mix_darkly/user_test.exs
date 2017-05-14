@@ -4,7 +4,7 @@ defmodule MixDarkly.UserTest do
   alias MixDarkly.User, as: Sut
 
   test "get value of user attribute when it is set" do
-    user = %Sut{:ip => "127.0.0.1"}
+    user = %Sut{ip: "127.0.0.1"}
     {value, pass} = Sut.value_of(user, "ip")
 
     assert value == "127.0.0.1"
@@ -12,7 +12,7 @@ defmodule MixDarkly.UserTest do
   end
 
   test "get value of unset user attribute" do
-    user = %Sut{:ip => nil}
+    user = %Sut{ip: nil}
     {value, pass} = Sut.value_of(user, "ip")
 
     assert value == nil
@@ -20,7 +20,7 @@ defmodule MixDarkly.UserTest do
   end
 
   test "get value of custom attribute" do
-    user = %Sut{:custom => [foo: "bar"]}
+    user = %Sut{custom: [foo: "bar"]}
     {value, pass} = Sut.value_of(user, "foo")
 
     assert value == "bar"
@@ -28,7 +28,7 @@ defmodule MixDarkly.UserTest do
   end
 
   test "get value of unset custom attribute" do
-    user = %Sut{:custom => [foo: "bar"]}
+    user = %Sut{custom: [foo: "bar"]}
     {value, pass} = Sut.value_of(user, "idontexist")
 
     assert value == nil

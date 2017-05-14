@@ -20,7 +20,7 @@ defmodule MixDarkly.Evaluation do
       {new_events, nil} ->
         {index, explanation} = evaluate_explain_index(flag, user)
         case FeatureFlag.get_variation(flag, index) do
-          {:ok, variation} -> {:ok, %{:value => variation, :explanation => explanation, :prerequisite_request_events => new_events ++ events}}
+          {:ok, variation} -> {:ok, %{value: variation, explanation: explanation, prerequisite_request_events: new_events ++ events}}
           {:error, reason} -> {:error, reason, explanation, new_events ++ events}
         end
       _ -> nil
@@ -35,11 +35,11 @@ defmodule MixDarkly.Evaluation do
     # If there is an error getting the feature flag, or the value is nil we
     # break out of the recursion by recursing on the empty list
     case FeatureStore.get(feature_store, head.key) do
-      {:ok, %{:on => false}} ->
+      {:ok, %{on: false}} ->
         check_prerequisites(tail, parent, user, feature_store, events, head)
       {:ok, flag} when flag != nil ->
-        new_event = %{:key => flag.key, :user => user, :value => nil, :something => nil,
-                      :version => flag.version, :parent_key => parent.key}
+        new_event = %{key: flag.key, user: user, value: nil, something: nil,
+                      version: flag.version, parent_key: parent.key}
 
         case evaluate_explain(flag, user, feature_store, events) do
           {:ok, %{value: value}} when value != nil ->

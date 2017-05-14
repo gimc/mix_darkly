@@ -16,7 +16,7 @@ defmodule MixDarkly.Client do
   @spec variation(client :: Client.t(), key :: String.t(), user :: User.t(), default :: term) ::
     {:ok, value :: term} |
     {:error, reason :: String.t()}
-  def variation(%{:config => %{:offline => true}}, _key, _user, default), do: {:ok, default}
+  def variation(%{config: %{offline: true}}, _key, _user, default), do: {:ok, default}
   def variation(_client, _key, _user, default) do
     {:ok, default}
   end
@@ -36,7 +36,7 @@ defmodule MixDarkly.Client do
   @spec evaluate(client :: Client.t(), key :: String.t(), user :: User.t(), default :: term) ::
     {:ok, value :: term, version :: term} |
     {:error, reason :: String.t()}
-  def evaluate(_client, _key, %{:key => nil}, _default), do: {:error, "User key cannot be nil"}
+  def evaluate(_client, _key, %{key: nil}, _default), do: {:error, "User key cannot be nil"}
   def evaluate(client, key, user, default) do
     user.key == "" && Logger.warn("User key is blank")
     if client.config.offline || client.config.use_ldd || !UpdateProcessor.is_initialized?(client.update_processor) do

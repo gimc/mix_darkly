@@ -28,7 +28,7 @@ defmodule MixDarkly.ClientTest do
   end
 
   test "Returns default variation when client is offline" do
-    client = %{:config => %{:offline => true}}
+    client = %{config: %{offline: true}}
 
     {:ok, value} = Sut.variation(client, "key", %{}, "foo")
 
@@ -36,7 +36,7 @@ defmodule MixDarkly.ClientTest do
   end
 
   test "evaluate returns error when the user key is nil" do
-    {result, reason} = Sut.evaluate(nil, "", %{:key => nil}, nil)
+    {result, reason} = Sut.evaluate(nil, "", %{key: nil}, nil)
     assert result == :error
     assert reason == "User key cannot be nil"
   end
@@ -44,10 +44,10 @@ defmodule MixDarkly.ClientTest do
   test "evaluate returns error when the update processor is not initialized" do
     {:ok, update_processor} = UpdateProcessor.start_link()
     {:ok, feature_store} = FeatureStore.start_link()
-    client = %{:update_processor => update_processor,
-               :feature_store => feature_store,
-               :config => %{:offline => false, :use_ldd => false}}
-    user = %{:key => "uniqueid"}
+    client = %{update_processor: update_processor,
+               feature_store: feature_store,
+               config: %{offline: false, use_ldd: false}}
+    user = %{key: "uniqueid"}
 
     {result, reason} = Sut.evaluate(client, "", user, nil)
 
@@ -58,13 +58,13 @@ defmodule MixDarkly.ClientTest do
   test "evaluate returns true when feature flag exists" do
     {:ok, update_processor} = UpdateProcessor.start_link()
     {:ok, feature_store} = FeatureStore.start_link()
-    client = %{:update_processor => update_processor,
-               :feature_store => feature_store,
-               :config => %{:offline => false, :use_ldd => false}}
-    user = %{:key => "uniqueid"}
+    client = %{update_processor: update_processor,
+               feature_store: feature_store,
+               config: %{offline: false, use_ldd: false}}
+    user = %{key: "uniqueid"}
 
     UpdateProcessor.initialize(update_processor)
-    FeatureStore.put(feature_store, %{:key => "foo", :version => 2, :on => true, :variations => [true, false]})
+    FeatureStore.put(feature_store, %{key: "foo", version: 2, on: true, variations: [true, false]})
 
     {:ok, value, version} = Sut.evaluate(client, "foo", user, false)
 
