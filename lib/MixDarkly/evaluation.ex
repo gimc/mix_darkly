@@ -10,7 +10,7 @@ defmodule MixDarkly.Evaluation do
   @type evaluation :: %{:value => term, :explanation => String.t(), :prerequisite_request_events => [prerequisite]}
 
   @spec evaluate_explain(flag :: FeatureFlag.t(), user :: User.t(), feature_store :: pid, events :: []) ::
-    {:ok, {evaluation :: evaluation()}} |
+    {:ok, evaluation :: evaluation()} |
     {:error, explanation :: explanation()} |
     nil
   def evaluate_explain(flag, user, feature_store, events \\ [])
@@ -87,7 +87,11 @@ defmodule MixDarkly.Evaluation do
   @spec find_matching_rule(feature_flag :: FeatureFlag.t(), user :: User.t()) ::
     {term, explanation} | nil
   def find_matching_rule(feature_flag, user) do
-    case Enum.find(feature_flag.rules, nil, &(rule_matches_user?(&1, user))) do
+    rule_matches_user? = fn rule ->
+      Enum.all?(rule.clauses, &(clause_matches_user?(&1, user)))
+    end
+
+    case Enum.find(feature_flag.rules, nil, rule_matches_user?) do
       nil -> nil
       rule ->
         case variation_index_for_user(rule.variation_or_rollout, user, feature_flag.key, feature_flag.salt) do
@@ -96,10 +100,6 @@ defmodule MixDarkly.Evaluation do
         end
     end
   end
-
-  @spec rule_matches_user?(rule :: FeatureFlag.rule(), user :: User.t()) :: boolean
-  def rule_matches_user?(rule, user),
-    do: Enum.all?(rule.clauses, &(clause_matches_user?(&1, user)))
 
   @spec clause_matches_user?(clause :: FeatureFlag.clause(), user :: User.t()) :: boolean
   def clause_matches_user?(clause, user) do

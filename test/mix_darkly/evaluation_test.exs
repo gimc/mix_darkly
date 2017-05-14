@@ -91,22 +91,20 @@ defmodule MixDarkly.EvaluationTest do
   end
 
   test "successfully evaluate flag without preqrequisites" do
-    flag = %{
+    rule = %{
+      clauses: [%{
+        attribute: "ip", op: "eq", values: ["127.0.0.1"], negate: false
+      }],
+      variation_or_rollout: %{
+        variation: 2,
+        rollout: nil
+      }
+    }
+
+    flag = %FeatureFlag{
       key: "test",
-      version: 1,
-      on: true,
-      prerequisites: [],
       variations: ["red", "green", "blue"],
-      targets: [],
-      rules: [%{
-        clauses: %{
-          attribute: "ip", op: "eq", values: ["127.0.0.1"], negate: false
-        },
-        variation_or_rollout: %{
-          variation: 2,
-          rollout: nil
-        }
-      }]
+      rules: [rule]
     }
 
     user = %User{
@@ -115,7 +113,7 @@ defmodule MixDarkly.EvaluationTest do
 
     feature_store = FeatureStore.start_link
 
-    {:ok, {evaluation, _}} = Sut.evaluate_explain(flag, user, feature_store)
+    {:ok, evaluation} = Sut.evaluate_explain(flag, user, feature_store)
 
     assert evaluation.value == "blue"
   end

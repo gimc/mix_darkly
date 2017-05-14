@@ -37,7 +37,7 @@ defmodule MixDarkly.FeatureFlag do
   }
 
   defstruct key: nil,
-            version: nil,
+            version: 1,
             on: true,
             prerequisites: [],
             salt: "",
