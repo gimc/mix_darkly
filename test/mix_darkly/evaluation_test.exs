@@ -111,7 +111,59 @@ defmodule MixDarkly.EvaluationTest do
       ip: "127.0.0.1"
     }
 
-    feature_store = FeatureStore.start_link
+    {:ok, feature_store} = FeatureStore.start_link
+
+    {:ok, evaluation} = Sut.evaluate_explain(flag, user, feature_store)
+
+    assert evaluation.value == "blue"
+  end
+
+  test "successfully evaluate flag with prerequisites" do
+    prerequisite = %{
+      key: "TestEmail",
+      variation: 1
+    }
+
+    rule = %{
+      clauses: [%{
+        attribute: "ip", op: "eq", values: ["127.0.0.1"], negate: false
+      }],
+      variation_or_rollout: %{
+        variation: 2,
+        rollout: nil
+      }
+    }
+
+    flag = %FeatureFlag{
+      key: "test",
+      variations: ["red", "green", "blue"],
+      rules: [rule],
+      prerequisites: [prerequisite]
+    }
+
+    prereq_flag = %FeatureFlag{
+      key: "TestEmail",
+      variations: ["test@test.xyz", "another_test@test.xyz"],
+      rules: [%{
+        clauses: [%{
+          attribute: "ip", op: "eq", values: ["192.168.0.1"], negate: false
+        }],
+        variation_or_rollout: %{variation: 0, rollout: nil}
+      }, %{
+        clauses: [%{
+          attribute: "ip", op: "eq", values: ["127.0.0.1"], negate: false
+        }],
+        variation_or_rollout: %{variation: 1, rollout: nil}
+      }]
+    }
+
+    user = %User{
+      ip: "127.0.0.1",
+      email: "test@test.xyz"
+    }
+
+    {:ok, feature_store} = FeatureStore.start_link
+    :ok = FeatureStore.put(feature_store, prereq_flag)
 
     {:ok, evaluation} = Sut.evaluate_explain(flag, user, feature_store)
 

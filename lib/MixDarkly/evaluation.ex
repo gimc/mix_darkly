@@ -39,12 +39,12 @@ defmodule MixDarkly.Evaluation do
         check_prerequisites(tail, parent, user, feature_store, events, head)
       {:ok, flag} when flag != nil ->
         new_event = %{:key => flag.key, :user => user, :value => nil, :something => nil,
-                      :version => head.version, :parent_key => parent.key}
+                      :version => flag.version, :parent_key => parent.key}
 
         case evaluate_explain(flag, user, feature_store, events) do
           {:ok, %{value: value}} when value != nil ->
             new_event = %{new_event | value: value}
-            case FeatureFlag.get_variation(flag, flag.variation) do
+            case FeatureFlag.get_variation(flag, head.variation) do
               {:ok, ^value} ->
                 check_prerequisites(tail, parent, user, feature_store, [new_event|events], last_failed_prereq)
               _ ->

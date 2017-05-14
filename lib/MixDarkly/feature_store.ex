@@ -17,5 +17,5 @@ defmodule MixDarkly.FeatureStore do
 
   @spec put(pid, feature_flag :: FeatureFlag.feature_flag()) :: :ok
   def put(pid, feature_flag),
-    do: Agent.update(pid, &(Map.put(&1, feature_flag[:key], feature_flag)))
+    do: Agent.update(pid, &(Map.put(&1, feature_flag.key, feature_flag)))
 end
