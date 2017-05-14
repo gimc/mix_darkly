@@ -14,5 +14,5 @@ defmodule MixDarkly.Config do
             send_events: true,
             offline: false
 
-  @type config :: %MixDarkly.Config{}
+  @type t :: %MixDarkly.Config{}
 end

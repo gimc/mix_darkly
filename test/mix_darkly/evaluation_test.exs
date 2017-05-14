@@ -2,6 +2,8 @@ defmodule MixDarkly.EvaluationTest do
   use ExUnit.Case
 
   alias MixDarkly.Evaluation, as: Sut
+  alias MixDarkly.FeatureFlag
+  alias MixDarkly.FeatureStore
   alias MixDarkly.User
 
   test "clause matches user with single value" do
@@ -52,27 +54,70 @@ defmodule MixDarkly.EvaluationTest do
     assert matches == false
   end
 
+  test "find matching rule for user where no rule matches" do
+    flag = %{
+      rules: []
+    }
+
+    user = %User{}
+
+    assert Sut.find_matching_rule(flag, user) == nil
+  end
+
+  test "find matching rule for user with matching variation" do
+    rule = %{
+      clauses: [%{
+        attribute: "ip",
+        values: ["127.0.0.1"],
+        negate: false
+      }],
+      variation_or_rollout: %{variation: 1, rollout: nil}
+    }
+
+    flag = %FeatureFlag{
+      variations: ["red", "green"],
+      rules: [rule],
+      key: "flag1",
+      salt: "salty"
+    }
+
+    user = %User{
+      ip: "127.0.0.1"
+    }
+
+    expected = {1, %{kind: "rule", rule: rule}}
+
+    assert Sut.find_matching_rule(flag, user) == expected
+  end
+
   test "successfully evaluate flag without preqrequisites" do
     flag = %{
-      :key => "test",
-      :version => 1,
-      :on => true,
-      :prerequisites => [],
-      :variations => ["red", "green", "blue"],
-      :rules => [%{
-        :clauses => %{
-          :attribute => "ip", :values => ["127.0.0.1"], :negate => false
+      key: "test",
+      version: 1,
+      on: true,
+      prerequisites: [],
+      variations: ["red", "green", "blue"],
+      targets: [],
+      rules: [%{
+        clauses: %{
+          attribute: "ip", op: "eq", values: ["127.0.0.1"], negate: false
+        },
+        variation_or_rollout: %{
+          variation: 2,
+          rollout: nil
         }
       }]
     }
 
     user = %User{
-      :ip => "127.0.0.1"
+      ip: "127.0.0.1"
     }
 
     feature_store = FeatureStore.start_link
 
-    {:ok, {evaluation, _}} = Evaluation.evaluate_explain(flag, user, feature_store)
+    {:ok, {evaluation, _}} = Sut.evaluate_explain(flag, user, feature_store)
+
+    assert evaluation.value == "blue"
   end
 
   test "rollout where user does not have value to be bucketed on" do

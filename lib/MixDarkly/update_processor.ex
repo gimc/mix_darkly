@@ -10,7 +10,7 @@ defmodule MixDarkly.UpdateProcessor do
   @spec is_initialized?(pid) :: {:reply, boolean}
   def is_initialized?(pid), do: GenServer.call(pid, :is_initialized?)
 
-  @spec initialize(pid) :: :noreply
+  @spec initialize(pid) :: :ok
   def initialize(pid), do: GenServer.cast(pid, :initialize)
 
   def init(state), do: {:ok, state}

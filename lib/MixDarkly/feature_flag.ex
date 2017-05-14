@@ -36,6 +36,19 @@ defmodule MixDarkly.FeatureFlag do
     :clauses => [clause()]
   }
 
+  defstruct key: nil,
+            version: nil,
+            on: true,
+            prerequisites: [],
+            salt: "",
+            sel: "",
+            targets: [],
+            rules: [],
+            fallthrough: nil,
+            off_variation: nil,
+            variations: [],
+            deleted: false
+
   @type t :: %{
     :key => String.t(),
     :version => integer,
@@ -56,8 +69,8 @@ defmodule MixDarkly.FeatureFlag do
     {:error, reason :: String.t()}
   def get_variation(_feature_flag, nil),
     do: {:error, "An index is required"}
-  def get_variation(%{:variations => variations}, index) when index >= length(variations),
+  def get_variation(%{variations: variations}, index) when index >= length(variations),
     do: {:error, "Invalid variation index"}
-  def get_variation(%{:variations => variations}, index),
+  def get_variation(%{variations: variations}, index),
     do: {:ok, Enum.at(variations, index)}
 end

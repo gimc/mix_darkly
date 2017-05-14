@@ -1,5 +1,6 @@
 defmodule MixDarkly.Evaluation do
   alias MixDarkly.FeatureFlag
+  alias MixDarkly.FeatureStore
   alias MixDarkly.User
 
   @hash_scale String.duplicate("F", 40) |> Integer.parse(16) |> elem(0)
@@ -8,8 +9,8 @@ defmodule MixDarkly.Evaluation do
   @type explanation :: %{:kind => String.t(), :prerequisite => prerequisite}
   @type evaluation :: %{:value => term, :explanation => String.t(), :prerequisite_request_events => [prerequisite]}
 
-  @spec evaluate_explain(user :: User.t(), flag :: FeatureFlag.t(), feature_store :: pid) ::
-    {:ok, {evaluation :: evaluation(), [prerequisite()]}} |
+  @spec evaluate_explain(flag :: FeatureFlag.t(), user :: User.t(), feature_store :: pid, events :: []) ::
+    {:ok, {evaluation :: evaluation()}} |
     {:error, explanation :: explanation()} |
     nil
   def evaluate_explain(flag, user, feature_store, events \\ [])
@@ -24,7 +25,6 @@ defmodule MixDarkly.Evaluation do
         end
       _ -> nil
     end
-
   end
 
   defp check_prerequisites(prerequisites, parent, user, feature_store),
@@ -42,9 +42,9 @@ defmodule MixDarkly.Evaluation do
                       :version => head.version, :parent_key => parent.key}
 
         case evaluate_explain(flag, user, feature_store, events) do
-          {:ok, {%{:value => value}, _}} when value != nil ->
+          {:ok, %{value: value}} when value != nil ->
             new_event = %{new_event | value: value}
-            case FeatureFlag.get_variation(flag.variation) do
+            case FeatureFlag.get_variation(flag, flag.variation) do
               {:ok, ^value} ->
                 check_prerequisites(tail, parent, user, feature_store, [new_event|events], last_failed_prereq)
               _ ->
@@ -59,7 +59,7 @@ defmodule MixDarkly.Evaluation do
   end
 
   @spec evaluate_explain_index(feature_flag :: FeatureFlag.feature_flag(), user :: term) ::
-    nil | {variation :: term, explanation :: explanation}
+    nil | {variation :: integer, explanation :: explanation}
   def evaluate_explain_index(feature_flag, user) do
     case find_matching_target(feature_flag, user.key) do
       nil ->
@@ -67,29 +67,32 @@ defmodule MixDarkly.Evaluation do
           nil ->
             case variation_index_for_user(feature_flag.fallthrough, user, feature_flag.key, feature_flag.salt) do
               nil -> nil
-              variation -> {variation, %{:kind => "fallthrough", :variation_or_rollout => feature_flag.fallthrough}}
+              variation -> {variation, %{kind: "fallthrough", variation_or_rollout: feature_flag.fallthrough}}
             end
           result -> result
         end
       target ->
-        {target.variation, %{:kind => "target", :target => target}}
+        {target.variation, %{kind: "target", target: target}}
     end
   end
 
-  @spec find_matching_target(feature_flag :: FeatureFlag.t(), key :: String.t()) :: String.t()
+  @spec find_matching_target(feature_flag :: FeatureFlag.t(), key :: String.t()) ::
+    FeatureFlag.target() | nil
   def find_matching_target(feature_flag, key) do
     Enum.find(feature_flag.targets, nil, fn target ->
       Enum.find(target.values, false, &(key == &1))
     end)
   end
 
+  @spec find_matching_rule(feature_flag :: FeatureFlag.t(), user :: User.t()) ::
+    {term, explanation} | nil
   def find_matching_rule(feature_flag, user) do
     case Enum.find(feature_flag.rules, nil, &(rule_matches_user?(&1, user))) do
       nil -> nil
       rule ->
-        case variation_index_for_user(rule, user, feature_flag.key, feature_flag.salt) do
+        case variation_index_for_user(rule.variation_or_rollout, user, feature_flag.key, feature_flag.salt) do
           nil -> nil
-          variation -> {variation, %{:kind => "rule", :rule => rule}}
+          variation -> {variation, %{kind: "rule", rule: rule}}
         end
     end
   end
