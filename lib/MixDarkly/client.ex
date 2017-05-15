@@ -5,6 +5,7 @@ defmodule MixDarkly.Client do
   alias MixDarkly.FeatureFlag
   alias MixDarkly.FeatureStore
   alias MixDarkly.UpdateProcessor
+  alias MixDarkly.Event.FeatureRequest, as: FeatureRequestEvent
 
   defstruct sdk_key: nil,
             config: %MixDarkly.Config{},
@@ -56,7 +57,7 @@ defmodule MixDarkly.Client do
           {:error, "Could not find key: #{key}"}
         {:ok, feature_flag} ->
           {result, {value, _events}} = eval_flag(client, feature_flag, user)
-          #Enum.for_each(events, &(EventProcessor.send(client.event_processor, &1)))
+          # Enum.for_each(events, &(EventProcessor.send(client.event_processor, &1)))
           if result == :ok do
             {:ok, value, feature_flag.version}
           else
@@ -67,20 +68,22 @@ defmodule MixDarkly.Client do
   end
 
   @spec eval_flag(client :: Client.t(), flag :: FeatureFlag.t(), user :: User.t()) ::
-    {:ok, {value :: term, pre_requisite_events :: []}} |
-    {:error, {reason :: String.t(), pre_requisite_events :: []}}
-  def eval_flag(client, flag, user) do
-    cond do
-      flag.on ->
-        {result, evaluation} = Evaluation.evaluate_explain(flag, user, client.feature_store)
-        cond do
-          result == :error -> {:error, {"", evaluation.prerequisite_request_events}}
-          evaluation.value != nil -> {:ok, {evaluation.value, evaluation.prerequisite_request_events}}
-        end
-      flag.off_variation != nil and flag.off_variation < length(flag.variations) ->
-        {:ok, {Enum.at(flag.variations, flag.off_variation), []}}
-      true ->
-        {:error, {"Flag is not enabled and no off variation is set", []}}
+    {:ok, {value :: term, pre_requisite_events :: [FeatureRequestEvent.t()]}}
+  defp eval_flag(client, flag, user) do
+    if flag.on do
+      {result, evaluation} = Evaluation.evaluate_explain(flag, user, client.feature_store)
+      cond do
+        result == :error -> {:ok, {nil, evaluation.prereq_request_events}}
+        evaluation.value != nil -> {:ok, {evaluation.value, evaluation.prereq_request_events}}
+        true -> {:ok, {evaluate_off_variation(flag), evaluation.prereq_request_events}}
+      end
+    else
+      {:ok, {evaluate_off_variation(flag), []}}
     end
   end
+
+  defp evaluate_off_variation(%{off_variation: nil}), do: nil
+  defp evaluate_off_variation(%{off_variation: off_variation, variations: variations})
+    when off_variation >= length(variations), do: nil
+  defp evaluate_off_variation(flag), do: Enum.at(flag.variations, flag.off_variation)
 end

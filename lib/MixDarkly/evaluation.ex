@@ -2,16 +2,17 @@ defmodule MixDarkly.Evaluation do
   alias MixDarkly.FeatureFlag
   alias MixDarkly.FeatureStore
   alias MixDarkly.User
+  alias MixDarkly.Event.FeatureRequest;
 
   @hash_scale String.duplicate("F", 40) |> Integer.parse(16) |> elem(0)
 
   @type prerequisite :: %{:key => String.t(), :variation => integer }
   @type explanation :: %{:kind => String.t(), :prerequisite => prerequisite}
-  @type evaluation :: %{:value => term, :explanation => String.t(), :prerequisite_request_events => [prerequisite]}
+  @type evaluation :: %{:value => term, :explanation => String.t(), :prereq_request_events => [FeatureRequest.t()]}
 
-  @spec evaluate_explain(flag :: FeatureFlag.t(), user :: User.t(), feature_store :: pid, events :: []) ::
+  @spec evaluate_explain(flag :: FeatureFlag.t(), user :: User.t(), feature_store :: pid, events :: [FeatureRequest.t()]) ::
     {:ok, evaluation :: evaluation()} |
-    {:error, explanation :: explanation()} |
+    {:error, reason :: String.t(), explanation :: explanation(), feature_request_events :: [FeatureRequest.t()]} |
     nil
   def evaluate_explain(flag, user, feature_store, events \\ [])
   def evaluate_explain(_flag, nil, _feature_store, _events), do: nil
@@ -20,7 +21,7 @@ defmodule MixDarkly.Evaluation do
       {new_events, nil} ->
         {index, explanation} = evaluate_explain_index(flag, user)
         case FeatureFlag.get_variation(flag, index) do
-          {:ok, variation} -> {:ok, %{value: variation, explanation: explanation, prerequisite_request_events: new_events ++ events}}
+          {:ok, variation} -> {:ok, %{value: variation, explanation: explanation, prereq_request_events: new_events ++ events}}
           {:error, reason} -> {:error, reason, explanation, new_events ++ events}
         end
       _ -> nil
