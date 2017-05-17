@@ -2,6 +2,7 @@ defmodule MixDarkly.Client do
   require Logger
 
   alias MixDarkly.Evaluation
+  alias MixDarkly.EventProcessor
   alias MixDarkly.FeatureFlag
   alias MixDarkly.FeatureStore
   alias MixDarkly.UpdateProcessor
@@ -26,8 +27,8 @@ defmodule MixDarkly.Client do
   def variation(%{config: %{offline: true}}, _key, _user, default), do: {:ok, default}
   def variation(client, key, user, default) do
     case evaluate(client, key, user, default) do
-      {:ok, value, version} -> {:ok, value}
-      {:error, reason} -> {:ok, default}
+      {:ok, value, _version} -> {:ok, value}
+      {:error, _reason} -> {:ok, default}
     end
   end
 
@@ -56,8 +57,8 @@ defmodule MixDarkly.Client do
         {:error, _} ->
           {:error, "Could not find key: #{key}"}
         {:ok, feature_flag} ->
-          {result, {value, _events}} = eval_flag(client, feature_flag, user)
-          # Enum.for_each(events, &(EventProcessor.send(client.event_processor, &1)))
+          {result, {value, events}} = eval_flag(client, feature_flag, user)
+          Enum.each(events, &(EventProcessor.send(client.event_processor, &1)))
           if result == :ok do
             {:ok, value, feature_flag.version}
           else

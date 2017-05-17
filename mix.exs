@@ -28,6 +28,8 @@ defmodule MixDarkly.Mixfile do
   #
   # Type "mix help deps" for more examples and options
   defp deps do
-    [{:dialyxir, "~> 0.5", only: [:dev], runtime: false}]
+    [{:dialyxir, "~> 0.5", only: [:dev], runtime: false},
+     {:httpoison, "~> 0.11.2"},
+     {:poison, "~> 3.0"}]
   end
 end
