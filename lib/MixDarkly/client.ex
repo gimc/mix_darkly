@@ -70,18 +70,15 @@ defmodule MixDarkly.Client do
 
   @spec eval_flag(client :: Client.t(), flag :: FeatureFlag.t(), user :: User.t()) ::
     {:ok, {value :: term, pre_requisite_events :: [FeatureRequestEvent.t()]}}
-  defp eval_flag(client, flag, user) do
-    if flag.on do
-      {result, evaluation} = Evaluation.evaluate_explain(flag, user, client.feature_store)
-      cond do
-        result == :error -> {:ok, {nil, evaluation.prereq_request_events}}
-        evaluation.value != nil -> {:ok, {evaluation.value, evaluation.prereq_request_events}}
-        true -> {:ok, {evaluate_off_variation(flag), evaluation.prereq_request_events}}
-      end
-    else
-      {:ok, {evaluate_off_variation(flag), []}}
+  defp eval_flag(client, %{on: true} = flag, user) do
+    {result, evaluation} = Evaluation.evaluate_explain(flag, user, client.feature_store)
+    cond do
+      result == :error -> {:ok, {nil, evaluation.prereq_request_events}}
+      evaluation.value != nil -> {:ok, {evaluation.value, evaluation.prereq_request_events}}
+      true -> {:ok, {evaluate_off_variation(flag), evaluation.prereq_request_events}}
     end
   end
+  defp eval_flag(_client, flag, _user), do: {:ok, {evaluate_off_variation(flag), []}}
 
   defp evaluate_off_variation(%{off_variation: nil}), do: nil
   defp evaluate_off_variation(%{off_variation: off_variation, variations: variations})

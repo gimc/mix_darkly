@@ -25,12 +25,12 @@ defmodule MixDarkly.EventProcessor do
   }
 
   # API
-  @spec start_link(config :: MixDarkly.EventProcessor.Config.t(), opts :: [term]) :: GenServer.on_start()
+  @spec start_link(config :: Config.t(), opts :: [term]) :: GenServer.on_start()
   def start_link(config, opts) do
     GenServer.start_link(__MODULE__, config, opts)
   end
 
-  @spec init(config :: MixDarkly.EventProcessor.Config.t()) ::
+  @spec init(config :: Config.t()) ::
     {:ok, MixDarkly.EventProcessor.t()}
   def init(config) do
     schedule_work(config.batch_interval)
@@ -46,7 +46,7 @@ defmodule MixDarkly.EventProcessor do
   end
 
   # Callbacks
-  def handle_cast({:send, _event}, _from, %{config: %{send_events: false}} = state) do
+  def handle_cast({:send, _event}, _from, %EventProcessor{config: %{send_events: false}} = state) do
     {:no_reply, state}
   end
   def handle_cast({:send, event}, _from, state) do
