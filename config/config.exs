@@ -7,7 +7,7 @@ config :mix_darkly,
   stream_uri: "https://stream.launchdarkly.com",
   events_uri: "https://events.launchdarkly.com"
 
-config :logger, level: :info
+config :logger, level: :debug
 # This configuration is loaded before any dependency and is restricted
 # to this project. If another project depends on this project, this
 # file won't be loaded nor affect the parent project. For this reason,

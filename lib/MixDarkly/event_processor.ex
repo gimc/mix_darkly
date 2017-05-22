@@ -24,9 +24,22 @@ defmodule MixDarkly.EventProcessor do
     :events => []
   }
 
+  defimpl String.Chars do
+    def to_string(%{config: config, events: events}) do
+      """
+      Event Processor
+      #{length(events)} in events queue
+      SDK Key: #{config.sdk_key}
+      Sending every #{config.batch_interval} seconds
+        to #{config.events_uri}
+      Version: #{config.version}
+      """
+    end
+  end
+
   # API
   @spec start_link(config :: Config.t(), opts :: [term]) :: GenServer.on_start()
-  def start_link(config, opts) do
+  def start_link(config, opts \\ []) do
     GenServer.start_link(__MODULE__, config, opts)
   end
 
@@ -40,22 +53,24 @@ defmodule MixDarkly.EventProcessor do
     }}
   end
 
-  @spec send(pid, event :: term) :: :ok
+  @spec send(pid, event :: MixDarkly.Event.FeatureRequest.t()) :: :ok
   def send(pid, event) do
     GenServer.cast(pid, {:send, event})
   end
 
   # Callbacks
-  def handle_cast({:send, _event}, _from, %EventProcessor{config: %{send_events: false}} = state) do
-    {:no_reply, state}
+  def handle_cast({:send, _event}, %MixDarkly.EventProcessor{config: %{send_events: false}} = state) do
+    {:noreply, state}
   end
-  def handle_cast({:send, event}, _from, state) do
-    {:no_reply, %{state | events: [event|state.events]}}
+  def handle_cast({:send, event}, state) do
+    {:noreply, %{state | events: [event|state.events]}}
   end
 
-  def handle_info(:flush, _from, %{events: events} = state) when length(events) == 0,
-    do: {:no_reply, state}
-  def handle_info(:flush, _from, state) do
+  def handle_info(:flush, %{events: events} = state) when length(events) == 0 do
+    schedule_work(state.config.batch_interval)
+    {:noreply, state}
+  end
+  def handle_info(:flush, state) do
     with uri <- state.config.events_uri <> "/bulk",
          body <- Poison.encode!(state, state.events),
          headers <- [{"Authorization", state.config.sdk_key},
@@ -63,11 +78,12 @@ defmodule MixDarkly.EventProcessor do
                     {"User-Agent", "MixDarkly/" <> state.config.version}],
          {:ok, _} <- HTTPoison.post(uri, body, headers)
     do
+      schedule_work(state.config.batch_interval)
       {:noreply, %{state | events: []}}
     else
-      {:error, error} ->
-        Logger.error(error)
-        {:stop, error.reason, state}
+      {:error, %HTTPoison.Error{id: id, reason: reason}} ->
+        Logger.error("Error when attempting to send events to '#{state.config.events_uri}'")
+        {:stop, reason, state}
     end
   end
 
