@@ -1,5 +1,6 @@
 defmodule MixDarkly.Config do
-  defstruct base_uri: "https://app.launchdarkly.com",
+  defstruct sdk_key: "",
+            base_uri: "https://app.launchdarkly.com",
             stream_uri: "https://stream.launchdarkly.com",
             capacity: 1000,
             sampling_interval: 0,

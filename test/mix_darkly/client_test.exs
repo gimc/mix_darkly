@@ -1,27 +1,26 @@
 defmodule MixDarkly.ClientTest do
   use ExUnit.Case
 
+  alias MixDarkly.Config
   alias MixDarkly.Client, as: Sut
   alias MixDarkly.FeatureFlag
   alias MixDarkly.FeatureStore
   alias MixDarkly.User
 
   defp setup do
-    client = %Sut{
+    config = %Config{
       sdk_key: "123456",
-      config: %MixDarkly.Config{
-        event_processor_config: %MixDarkly.EventProcessor.Config{}
-      }
+      event_processor_config: %MixDarkly.EventProcessor.Config{}
     }
 
-    MixDarkly.Supervisor.start_link(client)
+    MixDarkly.Supervisor.start_link(config)
 
     user = %User{
       key: "User1",
       ip: "127.0.0.1"
     }
 
-    [client: client, user: user]
+    [config: config, user: user]
   end
 
   test "Returns bool variation for valid key" do
@@ -44,28 +43,28 @@ defmodule MixDarkly.ClientTest do
     default_value = false
     expected_value = true
 
-    {:ok, value} = Sut.bool_variation(context[:client], "BooleanFlag", context[:user], default_value)
+    {:ok, value} = Sut.bool_variation(context[:config], "BooleanFlag", context[:user], default_value)
 
     assert value == expected_value
   end
 
   test "Returns default bool variation for non-existing key" do
     context = setup()
-    {:ok, value} = Sut.bool_variation(context[:client], "idontexist", context[:user], true)
+    {:ok, value} = Sut.bool_variation(context[:config], "idontexist", context[:user], true)
     assert value == true
   end
 
   test "Using bool_variation to return non-boolean value returns error" do
     context = setup()
-    {result, reason} = Sut.bool_variation(context[:client], "idontexist", context[:user], "i am not a bool")
+    {result, reason} = Sut.bool_variation(context[:config], "idontexist", context[:user], "i am not a bool")
     assert result == :error
     assert String.starts_with?(reason, "Incompatible type")
   end
 
   test "Returns default variation when client is offline" do
-    client = %{config: %{offline: true}}
+    config = %{offline: true}
 
-    {:ok, value} = Sut.variation(client, "key", %{}, "foo")
+    {:ok, value} = Sut.variation(config, "key", %{}, "foo")
 
     assert value == "foo"
   end
@@ -88,7 +87,7 @@ defmodule MixDarkly.ClientTest do
 
     FeatureStore.put(flag)
 
-    {:ok, value, version} = Sut.evaluate(context[:client], "foo", user, false)
+    {:ok, value, version} = Sut.evaluate(context[:config], "foo", user, false)
 
     assert value == true
     assert version == 2

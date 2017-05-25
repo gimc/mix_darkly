@@ -1,6 +1,7 @@
 defmodule MixDarkly.Client do
   require Logger
 
+  alias MixDarkly.Config
   alias MixDarkly.Evaluation
   alias MixDarkly.EventProcessor
   alias MixDarkly.FeatureFlag
@@ -8,17 +9,9 @@ defmodule MixDarkly.Client do
   alias MixDarkly.UpdateProcessor
   alias MixDarkly.Event.FeatureRequest, as: FeatureRequestEvent
 
-  defstruct sdk_key: nil,
-            config: %MixDarkly.Config{}
-
-  @type t :: %MixDarkly.Client{
-    :sdk_key => String.t(),
-    :config => MixDarkly.Config.t()
-  }
-
-  @spec variation(client :: Client.t(), key :: String.t(), user :: User.t(), default :: term) ::
+  @spec variation(config :: Config.t(), key :: String.t(), user :: User.t(), default :: term) ::
     {:ok, value :: term}
-  def variation(%{config: %{offline: true}}, _key, _user, default), do: {:ok, default}
+  def variation(%{offline: true}, _key, _user, default), do: {:ok, default}
   def variation(client, key, user, default) do
     case evaluate(client, key, user, default) do
       {:ok, value, _version} -> {:ok, value}
@@ -26,7 +19,7 @@ defmodule MixDarkly.Client do
     end
   end
 
-  @spec bool_variation(client :: Client.t(), key :: String.t(), user :: User.t() , default :: boolean) ::
+  @spec bool_variation(config :: Config.t(), key :: String.t(), user :: User.t() , default :: boolean) ::
     {:ok, boolean } | :error
   def bool_variation(client, key, user, default) do
     case variation(client, key, user, default) do
@@ -38,27 +31,25 @@ defmodule MixDarkly.Client do
   @doc """
   Evaluates the feature flag stored under 'key' in the flag store
   """
-  @spec evaluate(client :: Client.t(), key :: String.t(), user :: User.t(), default :: term) ::
+  @spec evaluate(config :: Config.t(), key :: String.t(), user :: User.t(), default :: term) ::
     {:ok, value :: term, version :: term} |
     {:error, reason :: String.t()}
-  def evaluate(_client, _key, %{key: nil}, _default), do: {:error, "User key cannot be nil"}
-  def evaluate(%{config: config}, key, user, default) do
+  def evaluate(_config, _key, %{key: nil}, _default), do: {:error, "User key cannot be nil"}
+  def evaluate(%{offline: true}, _, _, _), do: {:error, "Client not initialized"}
+  def evaluate(%{use_ldd: true}, _, _, _), do: {:error, "Client not initialized"}
+  def evaluate(_config, key, user, default) do
     user.key == "" && Logger.warn("User key is blank")
-    if config.offline || config.use_ldd || !UpdateProcessor.is_initialized? do
-        {:error, "Client not initialized"}
-    else
-      case FeatureStore.get(key) do
-        {:error, _} ->
-          {:error, "Could not find key: #{key}"}
-        {:ok, feature_flag} ->
-          {result, {value, events}} = eval_flag(feature_flag, user)
-          Enum.each(events, &EventProcessor.send/1)
-          if result == :ok do
-            {:ok, value, feature_flag.version}
-          else
-            {:ok, default, feature_flag.version}
-          end
-      end
+    case FeatureStore.get(key) do
+      {:error, _} ->
+        {:error, "Could not find key: #{key}"}
+      {:ok, feature_flag} ->
+        {result, {value, events}} = eval_flag(feature_flag, user)
+        Enum.each(events, &EventProcessor.send/1)
+        if result == :ok do
+          {:ok, value, feature_flag.version}
+        else
+          {:ok, default, feature_flag.version}
+        end
     end
   end
 
