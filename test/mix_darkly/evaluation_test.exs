@@ -162,10 +162,10 @@ defmodule MixDarkly.EvaluationTest do
       email: "test@test.xyz"
     }
 
-    {:ok, feature_store} = FeatureStore.start_link
-    :ok = FeatureStore.put(feature_store, prereq_flag)
+    {:ok, _} = FeatureStore.start_link
+    :ok = FeatureStore.put(prereq_flag)
 
-    {:ok, evaluation} = Sut.evaluate_explain(flag, user, feature_store)
+    {:ok, evaluation} = Sut.evaluate_explain(flag, user)
 
     assert evaluation.value == "blue"
   end

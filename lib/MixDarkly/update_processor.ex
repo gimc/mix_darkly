@@ -2,18 +2,15 @@ defmodule MixDarkly.UpdateProcessor do
   @moduledoc """
   Connects to LD event streaming endpoint and listens for updates
   """
-
   use GenServer
 
-  def start_link(), do: GenServer.start_link(__MODULE__, false)
+  def start_link(), do: GenServer.start_link(__MODULE__, false, [name: :update_processor])
 
-  @spec is_initialized?(pid) :: {:reply, boolean}
-  def is_initialized?(pid), do: GenServer.call(pid, :is_initialized?)
+  @spec is_initialized? :: {:reply, boolean}
+  def is_initialized?, do: {:reply, true}
 
-  @spec initialize(pid) :: :ok
-  def initialize(pid), do: GenServer.cast(pid, :initialize)
+  @spec initialize :: :ok
+  def initialize, do: :ok
 
   def init(state), do: {:ok, state}
-  def handle_call(:is_initialized?, _from, state), do: {:reply, state, state}
-  def handle_cast(:initialize, state), do: {:noreply, true}
 end

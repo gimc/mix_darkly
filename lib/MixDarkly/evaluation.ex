@@ -10,14 +10,14 @@ defmodule MixDarkly.Evaluation do
   @type explanation :: %{:kind => String.t(), :prerequisite => prerequisite}
   @type evaluation :: %{:value => term, :explanation => String.t(), :prereq_request_events => [FeatureRequest.t()]}
 
-  @spec evaluate_explain(flag :: FeatureFlag.t(), user :: User.t(), feature_store :: pid, events :: [FeatureRequest.t()]) ::
+  @spec evaluate_explain(flag :: FeatureFlag.t(), user :: User.t(), events :: [FeatureRequest.t()]) ::
     {:ok, evaluation :: evaluation()} |
     {:error, reason :: String.t(), explanation :: explanation(), feature_request_events :: [FeatureRequest.t()]} |
     nil
-  def evaluate_explain(flag, user, feature_store, events \\ [])
-  def evaluate_explain(_flag, nil, _feature_store, _events), do: nil
-  def evaluate_explain(flag, user, feature_store, events) do
-    case check_prerequisites(flag.prerequisites, flag, user, feature_store) do
+  def evaluate_explain(flag, user, events \\ [])
+  def evaluate_explain(_flag, nil, _events), do: nil
+  def evaluate_explain(flag, user, events) do
+    case check_prerequisites(flag.prerequisites, flag, user) do
       {new_events, nil} ->
         {index, explanation} = evaluate_explain_index(flag, user)
         case FeatureFlag.get_variation(flag, index) do
@@ -28,34 +28,34 @@ defmodule MixDarkly.Evaluation do
     end
   end
 
-  defp check_prerequisites(prerequisites, parent, user, feature_store),
-    do: check_prerequisites(prerequisites, parent, user, feature_store, [], nil)
-  defp check_prerequisites([], _parent, _user, _feature_store, events, last_failed_prereq),
+  defp check_prerequisites(prerequisites, parent, user),
+    do: check_prerequisites(prerequisites, parent, user, [], nil)
+  defp check_prerequisites([], _parent, _user, events, last_failed_prereq),
     do: {events, last_failed_prereq}
-  defp check_prerequisites([head|tail], parent, user, feature_store, events, last_failed_prereq) do
+  defp check_prerequisites([head|tail], parent, user, events, last_failed_prereq) do
     # If there is an error getting the feature flag, or the value is nil we
     # break out of the recursion by recursing on the empty list
-    case FeatureStore.get(feature_store, head.key) do
+    case FeatureStore.get(head.key) do
       {:ok, %{on: false}} ->
-        check_prerequisites(tail, parent, user, feature_store, events, head)
+        check_prerequisites(tail, parent, user, events, head)
       {:ok, flag} when flag != nil ->
         new_event = %{key: flag.key, user: user, value: nil, something: nil,
                       version: flag.version, parent_key: parent.key}
 
-        case evaluate_explain(flag, user, feature_store, events) do
+        case evaluate_explain(flag, user, events) do
           {:ok, %{value: value}} when value != nil ->
             new_event = %{new_event | value: value}
             case FeatureFlag.get_variation(flag, head.variation) do
               {:ok, ^value} ->
-                check_prerequisites(tail, parent, user, feature_store, [new_event|events], last_failed_prereq)
+                check_prerequisites(tail, parent, user, [new_event|events], last_failed_prereq)
               _ ->
-                check_prerequisites(tail, parent, user, feature_store, [new_event|events], flag)
+                check_prerequisites(tail, parent, user, [new_event|events], flag)
             end
           _ ->
-            check_prerequisites(tail, parent, user, feature_store, [new_event|events], flag)
+            check_prerequisites(tail, parent, user, [new_event|events], flag)
         end
       _ ->
-        check_prerequisites([], parent, user, feature_store, events, head)
+        check_prerequisites([], parent, user, events, head)
     end
   end
 

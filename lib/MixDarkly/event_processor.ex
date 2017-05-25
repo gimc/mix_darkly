@@ -1,11 +1,9 @@
 defmodule MixDarkly.EventProcessor.Config do
-  defstruct sdk_key: "",
-            batch_interval: 30,
+  defstruct batch_interval: 30,
             events_uri: Application.fetch_env!(:mix_darkly, :events_uri),
             version: Mix.Project.config[:version]
 
   @type t :: %MixDarkly.EventProcessor.Config{
-    :sdk_key => String.t(),
     :batch_interval => integer,
     :events_uri => String.t(),
     :version => integer
@@ -17,10 +15,12 @@ defmodule MixDarkly.EventProcessor do
   require Logger
   alias MixDarkly.EventProcessor.Config
 
-  defstruct config: %Config{},
+  defstruct sdk_key: nil,
+            config: %Config{},
             events: []
 
   @type t :: %MixDarkly.EventProcessor{
+    :sdk_key => String.t(),
     :config => Config.t(),
     :events => []
   }
@@ -39,23 +39,24 @@ defmodule MixDarkly.EventProcessor do
   end
 
   # API
-  @spec start_link(config :: Config.t(), opts :: [term]) :: GenServer.on_start()
-  def start_link(config, opts \\ []) do
-    GenServer.start_link(__MODULE__, config, opts)
+  @spec start_link(sdk_key :: String.t(), config :: Config.t(), opts :: [term]) :: GenServer.on_start()
+  def start_link(sdk_key, config, opts \\ []) do
+    GenServer.start_link(__MODULE__, [sdk_key, config], Keyword.merge(opts, [name: :event_processor]))
   end
 
-  @spec init(config :: Config.t()) :: {:ok, MixDarkly.EventProcessor.t()}
-  def init(config) do
+  @spec init(sdk_key :: String.t(), config :: Config.t()) :: {:ok, MixDarkly.EventProcessor.t()}
+  def init(sdk_key, config) do
     schedule_work(config.batch_interval)
     {:ok, %MixDarkly.EventProcessor{
+      sdk_key: sdk_key,
       config: config,
       events: []
     }}
   end
 
-  @spec send(pid, event :: MixDarkly.Event.FeatureRequest.t()) :: :ok
-  def send(pid, event) do
-    GenServer.cast(pid, {:send, event})
+  @spec send(event :: MixDarkly.Event.FeatureRequest.t()) :: :ok
+  def send(event) do
+    GenServer.cast(:event_processor, {:send, event})
   end
 
   # Callbacks
@@ -73,7 +74,7 @@ defmodule MixDarkly.EventProcessor do
   def handle_info(:flush, state) do
     with uri <- state.config.events_uri <> "/bulk",
          body <- Poison.encode!(state, state.events),
-         headers <- [{"Authorization", state.config.sdk_key},
+         headers <- [{"Authorization", state.sdk_key},
                     {"Content-Type", "application/json"},
                     {"User-Agent", "MixDarkly/" <> state.config.version}],
          {:ok, _} <- HTTPoison.post(uri, body, headers)

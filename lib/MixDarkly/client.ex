@@ -9,17 +9,11 @@ defmodule MixDarkly.Client do
   alias MixDarkly.Event.FeatureRequest, as: FeatureRequestEvent
 
   defstruct sdk_key: nil,
-            config: %MixDarkly.Config{},
-            event_processor: nil,
-            update_processor: nil,
-            feature_store: nil
+            config: %MixDarkly.Config{}
 
   @type t :: %MixDarkly.Client{
     :sdk_key => String.t(),
-    :config => MixDarkly.Config.t(),
-    :event_processor => pid,
-    :update_processor => pid,
-    :feature_store => pid
+    :config => MixDarkly.Config.t()
   }
 
   @spec variation(client :: Client.t(), key :: String.t(), user :: User.t(), default :: term) ::
@@ -48,17 +42,17 @@ defmodule MixDarkly.Client do
     {:ok, value :: term, version :: term} |
     {:error, reason :: String.t()}
   def evaluate(_client, _key, %{key: nil}, _default), do: {:error, "User key cannot be nil"}
-  def evaluate(%{config: config} = client, key, user, default) do
+  def evaluate(%{config: config}, key, user, default) do
     user.key == "" && Logger.warn("User key is blank")
-    if config.offline || config.use_ldd || !UpdateProcessor.is_initialized?(client.update_processor) do
+    if config.offline || config.use_ldd || !UpdateProcessor.is_initialized? do
         {:error, "Client not initialized"}
     else
-      case FeatureStore.get(client.feature_store, key) do
+      case FeatureStore.get(key) do
         {:error, _} ->
           {:error, "Could not find key: #{key}"}
         {:ok, feature_flag} ->
-          {result, {value, events}} = eval_flag(client, feature_flag, user)
-          Enum.each(events, &(EventProcessor.send(client.event_processor, &1)))
+          {result, {value, events}} = eval_flag(feature_flag, user)
+          Enum.each(events, &EventProcessor.send/1)
           if result == :ok do
             {:ok, value, feature_flag.version}
           else
@@ -68,17 +62,17 @@ defmodule MixDarkly.Client do
     end
   end
 
-  @spec eval_flag(client :: Client.t(), flag :: FeatureFlag.t(), user :: User.t()) ::
+  @spec eval_flag(flag :: FeatureFlag.t(), user :: User.t()) ::
     {:ok, {value :: term, pre_requisite_events :: [FeatureRequestEvent.t()]}}
-  defp eval_flag(client, %{on: true} = flag, user) do
-    {result, evaluation} = Evaluation.evaluate_explain(flag, user, client.feature_store)
+  defp eval_flag(%{on: true} = flag, user) do
+    {result, evaluation} = Evaluation.evaluate_explain(flag, user)
     cond do
       result == :error -> {:ok, {nil, evaluation.prereq_request_events}}
       evaluation.value != nil -> {:ok, {evaluation.value, evaluation.prereq_request_events}}
       true -> {:ok, {evaluate_off_variation(flag), evaluation.prereq_request_events}}
     end
   end
-  defp eval_flag(_client, flag, _user), do: {:ok, {evaluate_off_variation(flag), []}}
+  defp eval_flag(flag, _user), do: {:ok, {evaluate_off_variation(flag), []}}
 
   defp evaluate_off_variation(%{off_variation: nil}), do: nil
   defp evaluate_off_variation(%{off_variation: off_variation, variations: variations})

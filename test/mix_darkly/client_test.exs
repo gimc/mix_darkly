@@ -4,19 +4,17 @@ defmodule MixDarkly.ClientTest do
   alias MixDarkly.Client, as: Sut
   alias MixDarkly.FeatureFlag
   alias MixDarkly.FeatureStore
-  alias MixDarkly.UpdateProcessor
   alias MixDarkly.User
 
   defp setup do
-    {:ok, update_processor} = UpdateProcessor.start_link()
-    UpdateProcessor.initialize(update_processor)
-
-    {:ok, feature_store} = FeatureStore.start_link()
-
     client = %Sut{
-      update_processor: update_processor,
-      feature_store: feature_store
+      sdk_key: "123456",
+      config: %MixDarkly.Config{
+        event_processor_config: %MixDarkly.EventProcessor.Config{}
+      }
     }
+
+    MixDarkly.Supervisor.start_link(client)
 
     user = %User{
       key: "User1",
@@ -41,7 +39,7 @@ defmodule MixDarkly.ClientTest do
       fallthrough: %{variation: 0, rollout: nil}
     }
 
-    FeatureStore.put(context[:client].feature_store, flag)
+    FeatureStore.put(flag)
 
     default_value = false
     expected_value = true
@@ -78,30 +76,8 @@ defmodule MixDarkly.ClientTest do
     assert reason == "User key cannot be nil"
   end
 
-  test "evaluate returns error when the update processor is not initialized" do
-    {:ok, update_processor} = UpdateProcessor.start_link()
-    {:ok, feature_store} = FeatureStore.start_link()
-    client = %{update_processor: update_processor,
-               feature_store: feature_store,
-               config: %{offline: false, use_ldd: false}}
-    user = %{key: "uniqueid"}
-
-    {result, reason} = Sut.evaluate(client, "", user, nil)
-
-    assert result == :error
-    assert reason == "Client not initialized"
-  end
-
   test "evaluate returns true when feature flag exists" do
-    {:ok, update_processor} = UpdateProcessor.start_link()
-    {:ok, feature_store} = FeatureStore.start_link()
-
-    client = %Sut{update_processor: update_processor,
-                  feature_store: feature_store,
-                  config: %{
-                    offline: false, use_ldd: false
-                  }}
-
+    context = setup()
     user = %User{key: "uniqueid"}
 
     flag = %FeatureFlag{key: "foo",
@@ -110,10 +86,9 @@ defmodule MixDarkly.ClientTest do
                         variations: [true, false],
                         targets: [%{values: ["uniqueid"], variation: 0}]}
 
-    UpdateProcessor.initialize(update_processor)
-    FeatureStore.put(feature_store, flag)
+    FeatureStore.put(flag)
 
-    {:ok, value, version} = Sut.evaluate(client, "foo", user, false)
+    {:ok, value, version} = Sut.evaluate(context[:client], "foo", user, false)
 
     assert value == true
     assert version == 2
