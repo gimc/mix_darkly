@@ -1,13 +1,14 @@
 defmodule MixDarkly.EventProcessor.Config do
   defstruct sdk_key: "",
             batch_interval: 30,
-            events_uri: "",
+            events_uri: Application.fetch_env!(:mix_darkly, :events_uri),
             version: Mix.Project.config[:version]
 
   @type t :: %MixDarkly.EventProcessor.Config{
     :sdk_key => String.t(),
     :batch_interval => integer,
-    :events_uri => String.t()
+    :events_uri => String.t(),
+    :version => integer
   }
 end
 
@@ -43,8 +44,7 @@ defmodule MixDarkly.EventProcessor do
     GenServer.start_link(__MODULE__, config, opts)
   end
 
-  @spec init(config :: Config.t()) ::
-    {:ok, MixDarkly.EventProcessor.t()}
+  @spec init(config :: Config.t()) :: {:ok, MixDarkly.EventProcessor.t()}
   def init(config) do
     schedule_work(config.batch_interval)
     {:ok, %MixDarkly.EventProcessor{
@@ -81,7 +81,7 @@ defmodule MixDarkly.EventProcessor do
       schedule_work(state.config.batch_interval)
       {:noreply, %{state | events: []}}
     else
-      {:error, %HTTPoison.Error{id: id, reason: reason}} ->
+      {:error, %HTTPoison.Error{reason: reason}} ->
         Logger.error("Error when attempting to send events to '#{state.config.events_uri}'")
         {:stop, reason, state}
     end

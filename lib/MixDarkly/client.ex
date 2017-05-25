@@ -48,9 +48,9 @@ defmodule MixDarkly.Client do
     {:ok, value :: term, version :: term} |
     {:error, reason :: String.t()}
   def evaluate(_client, _key, %{key: nil}, _default), do: {:error, "User key cannot be nil"}
-  def evaluate(client, key, user, default) do
+  def evaluate(%{config: config} = client, key, user, default) do
     user.key == "" && Logger.warn("User key is blank")
-    if client.config.offline || client.config.use_ldd || !UpdateProcessor.is_initialized?(client.update_processor) do
+    if config.offline || config.use_ldd || !UpdateProcessor.is_initialized?(client.update_processor) do
         {:error, "Client not initialized"}
     else
       case FeatureStore.get(client.feature_store, key) do

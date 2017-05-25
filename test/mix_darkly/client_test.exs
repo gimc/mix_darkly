@@ -26,7 +26,7 @@ defmodule MixDarkly.ClientTest do
     [client: client, user: user]
   end
 
-  test "Returns bool variation for valid key", context do
+  test "Returns bool variation for valid key" do
     context = setup()
 
     flag = %FeatureFlag{
